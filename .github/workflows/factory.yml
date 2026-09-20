@@ -2,13 +2,10 @@
 name: APK Factory
 on:
   push:
-    paths: ['inbox/**', '.github/workflows/factory.yml']
+    paths: ['inbox/**']
   workflow_dispatch: {}
 permissions:
   contents: write
-concurrency:
-  group: apk-factory
-  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,9 +14,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: "8.9" }
+      - name: Accept Android SDK licenses
+        run: |
+          # The runner already ships the Android SDK; just make sure licenses are accepted.
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          echo "ANDROID_HOME=$ANDROID_HOME"; ls "$ANDROID_HOME/platforms" 2>/dev/null | head
       - name: Write factory files
         run: |
           set -e
@@ -260,8 +261,8 @@ jobs:
           __EOF__
           cat > scripts/build_one.sh <<'__EOF__'
           #!/usr/bin/env bash
-          # Usage: build_one.sh inbox/<name>.zip   -> creates a GitHub Release containing the APK
-          set -euo pipefail
+          # Usage: build_one.sh inbox/<name>.zip  -> GitHub Release with the APK (or a "fail-" release holding the error text)
+          set -uo pipefail
           REPO="$(pwd)"; ZIP="$REPO/$1"
           NAME="$(basename "$1" .zip)"
           HASH="$(sha256sum "$ZIP" | cut -c1-8)"
@@ -269,11 +270,23 @@ jobs:
           SLUG="$(printf '%s' "$NAME" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]\+/-/g;s/^-//;s/-$//')"; SLUG="${SLUG:-app-$HASH}"
           APPID="com.factory.a$(printf '%s' "$SLUG" | tr -d '-')"
           TAG="$SLUG-$HASH"
+          W="$(mktemp -d)"; LOG="$W/build.log"; : > "$LOG"
+
+          fail() {  # $1 = short reason. Publishes the error so the web page can show it.
+            echo "❌ $1"; tail -n 40 "$LOG"
+            { echo "FAILED-BUILD for: $NAME.zip"; echo; echo "$1"; echo
+              { grep -E '^e: ' "$LOG" | head -20; grep -A8 'What went wrong' "$LOG" | head -14; } | cut -c1-240
+            } > "$W/fail.txt"
+            gh release delete "fail-$TAG" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1
+            gh release create "fail-$TAG" -R "$GITHUB_REPOSITORY" --prerelease --title "FAILED: $CLEAN" --notes-file "$W/fail.txt" >/dev/null 2>&1
+            exit 1
+          }
 
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "✓ already built: $TAG"; exit 0; fi
           echo "=== Building $NAME ($TAG)"
 
-          W="$(mktemp -d)"; mkdir "$W/src"; unzip -q "$ZIP" -d "$W/src"; rm -rf "$W/src/__MACOSX"
+          mkdir "$W/src"; unzip -q "$ZIP" -d "$W/src" || fail "ZIP খোলা যায়নি (ফাইল নষ্ট?)"
+          rm -rf "$W/src/__MACOSX"
           ROOT="$W/src"
           while [ "$(ls -A "$ROOT" | wc -l)" -eq 1 ] && [ -d "$ROOT/$(ls -A "$ROOT")" ]; do ROOT="$ROOT/$(ls -A "$ROOT")"; done
           OUT="$W/$SLUG.apk"
@@ -281,20 +294,22 @@ jobs:
           if [ -f "$ROOT/settings.gradle" ] || [ -f "$ROOT/settings.gradle.kts" ]; then
             MODE="android-project"
             cd "$ROOT"
-            if [ -f gradlew ]; then chmod +x gradlew; ./gradlew assembleDebug --no-daemon 2>&1 | tail -n 200
-            else gradle assembleDebug --no-daemon 2>&1 | tail -n 200; fi
+            if [ -f gradlew ]; then chmod +x gradlew; ./gradlew assembleDebug --no-daemon > "$LOG" 2>&1 || fail "Gradle build ব্যর্থ"
+            else gradle assembleDebug --no-daemon > "$LOG" 2>&1 || fail "Gradle build ব্যর্থ"; fi
+            tail -n 15 "$LOG"
             APK="$(find . -path '*/outputs/apk/debug/*.apk' ! -name '*androidTest*' | sort | head -1)"
-            [ -n "$APK" ] || { echo "❌ Build finished but no APK was produced"; exit 1; }
+            [ -n "$APK" ] || fail "বিল্ড শেষ হয়েছে কিন্তু APK ফাইল পাওয়া যায়নি"
             cp "$APK" "$OUT"
           else
             IDX="$(find "$W/src" -maxdepth 4 -name index.html | awk '{print length, $0}' | sort -n | head -1 | cut -d' ' -f2-)"
-            [ -n "$IDX" ] || { echo "❌ ZIP has neither a Gradle project nor an index.html"; exit 1; }
+            [ -n "$IDX" ] || fail "ZIP-এ Gradle প্রজেক্ট বা index.html কোনোটাই নেই"
             MODE="web-app"
             WWW="$REPO/webshell/app/src/main/assets/www"; rm -rf "$WWW"; mkdir -p "$WWW"
             cp -r "$(dirname "$IDX")/." "$WWW/"
             cd "$REPO/webshell"
-            gradle assembleDebug --no-daemon -PappId="$APPID" -PappName="$CLEAN" -Pvcode="$(( $(date +%s) / 60 ))" 2>&1 | tail -n 200
-            cp app/build/outputs/apk/debug/app-debug.apk "$OUT"
+            gradle assembleDebug --no-daemon -PappId="$APPID" -PappName="$CLEAN" -Pvcode="$(( $(date +%s) / 60 ))" > "$LOG" 2>&1 || fail "Gradle build ব্যর্থ"
+            tail -n 15 "$LOG"
+            cp app/build/outputs/apk/debug/app-debug.apk "$OUT" || fail "APK ফাইল পাওয়া যায়নি"
           fi
 
           # Same signing key for every build => new versions install over old ones.
@@ -304,7 +319,11 @@ jobs:
               --v4-signing-enabled false --out "$OUT.signed" "$OUT" && mv "$OUT.signed" "$OUT"
           fi
 
-          gh release create "$TAG" "$OUT" -R "$GITHUB_REPOSITORY" --title "$CLEAN" --notes "mode: $MODE • source: $NAME.zip"
+          if ! gh release create "$TAG" "$OUT" -R "$GITHUB_REPOSITORY" --title "$CLEAN" --notes "mode: $MODE • source: $NAME.zip"; then
+            gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 && { echo "already published by another run"; exit 0; }
+            fail "রিলিজ তৈরি করা যায়নি"
+          fi
+          gh release delete "fail-$TAG" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1
           echo "✅ Done: $TAG"
           __EOF__
           chmod +x scripts/build_one.sh
