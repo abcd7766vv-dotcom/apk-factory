@@ -1,0 +1,320 @@
+# APK Factory workflow (installed automatically by APK-Factory.html)
+name: APK Factory
+on:
+  push:
+    paths: ['inbox/**', '.github/workflows/factory.yml']
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: apk-factory
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.9" }
+      - name: Write factory files
+        run: |
+          set -e
+          mkdir -p webshell/app/src/main/java/com/factory/shell webshell/app/src/main/res/drawable webshell/app/src/main/assets scripts
+          base64 -d > factory.jks <<'__KS__'
+          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
+          h+pdsdFeIGQCAicQ
+          __KS__
+          cat > webshell/settings.gradle.kts <<'__EOF__'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "webshell"
+          include(":app")
+          __EOF__
+          cat > webshell/build.gradle.kts <<'__EOF__'
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          __EOF__
+          cat > webshell/gradle.properties <<'__EOF__'
+          org.gradle.jvmargs=-Xmx2g
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          __EOF__
+          cat > webshell/app/build.gradle.kts <<'__EOF__'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+          val shellAppId = (project.findProperty("appId") as String?) ?: "com.factory.shell"
+          val shellAppName = (project.findProperty("appName") as String?) ?: "Web App"
+          val shellVcode = (project.findProperty("vcode") as String?)?.toIntOrNull() ?: 1
+
+          android {
+              namespace = "com.factory.shell"
+              compileSdk = 34
+              defaultConfig {
+                  applicationId = shellAppId
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = shellVcode
+                  versionName = "1.0"
+                  resValue("string", "app_name", shellAppName)
+              }
+              signingConfigs {
+                  create("f") {
+                      storeFile = file("../../factory.jks"); storePassword = "factory123"
+                      keyAlias = "factory"; keyPassword = "factory123"
+                  }
+              }
+              buildTypes { getByName("debug") { signingConfig = signingConfigs.getByName("f") } }
+              compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+              kotlinOptions { jvmTarget = "17" }
+          }
+          dependencies { implementation("androidx.webkit:webkit:1.11.0") }
+          __EOF__
+          cat > webshell/app/src/main/AndroidManifest.xml <<'__EOF__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+              <uses-feature android:name="android.hardware.camera" android:required="false" />
+              <application
+                  android:allowBackup="true"
+                  android:hardwareAccelerated="true"
+                  android:icon="@drawable/ic_launcher"
+                  android:label="@string/app_name"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+                  android:usesCleartextTraffic="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          __EOF__
+          cat > webshell/app/src/main/res/drawable/ic_launcher.xml <<'__EOF__'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#120014" android:pathData="M0,0h108v108h-108z" />
+              <path android:fillColor="#FF2BD6" android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0" />
+              <path android:fillColor="#FFFFFF" android:pathData="M54,54m-11,0a11,11 0,1 1,22 0a11,11 0,1 1,-22 0" />
+          </vector>
+          __EOF__
+          cat > webshell/app/src/main/java/com/factory/shell/MainActivity.kt <<'__EOF__'
+          package com.factory.shell
+
+          import android.Manifest
+          import android.app.Activity
+          import android.app.DownloadManager
+          import android.content.ActivityNotFoundException
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.net.Uri
+          import android.os.Bundle
+          import android.os.Environment
+          import android.webkit.PermissionRequest
+          import android.webkit.URLUtil
+          import android.webkit.ValueCallback
+          import android.webkit.WebChromeClient
+          import android.webkit.WebResourceRequest
+          import android.webkit.WebSettings
+          import android.webkit.WebView
+          import android.webkit.WebViewClient
+          import androidx.webkit.WebViewAssetLoader
+
+          /** Generic shell: runs the zipped web project (assets/www/index.html) as a full-screen app. */
+          class MainActivity : Activity() {
+              private lateinit var wv: WebView
+              private var fileCb: ValueCallback<Array<Uri>>? = null
+              private var pendingPerm: PermissionRequest? = null
+
+              override fun onCreate(b: Bundle?) {
+                  super.onCreate(b)
+                  wv = WebView(this)
+                  setContentView(wv)
+                  val loader = WebViewAssetLoader.Builder()
+                      .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
+                  wv.settings.apply {
+                      javaScriptEnabled = true; domStorageEnabled = true; databaseEnabled = true
+                      mediaPlaybackRequiresUserGesture = false
+                      mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                  }
+                  wv.webViewClient = object : WebViewClient() {
+                      override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest) = loader.shouldInterceptRequest(r.url)
+                      override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
+                          val s = r.url.scheme
+                          if (s == "http" || s == "https") return false
+                          try { startActivity(Intent(Intent.ACTION_VIEW, r.url)) } catch (_: ActivityNotFoundException) {}
+                          return true
+                      }
+                  }
+                  wv.webChromeClient = object : WebChromeClient() {
+                      override fun onPermissionRequest(req: PermissionRequest) {
+                          runOnUiThread {
+                              val need = ArrayList<String>()
+                              for (r in req.resources) {
+                                  if (r == PermissionRequest.RESOURCE_VIDEO_CAPTURE) need.add(Manifest.permission.CAMERA)
+                                  if (r == PermissionRequest.RESOURCE_AUDIO_CAPTURE) need.add(Manifest.permission.RECORD_AUDIO)
+                              }
+                              val missing = need.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+                              if (missing.isEmpty()) req.grant(req.resources)
+                              else { pendingPerm = req; requestPermissions(missing.toTypedArray(), 77) }
+                          }
+                      }
+                      override fun onShowFileChooser(v: WebView, cb: ValueCallback<Array<Uri>>, p: FileChooserParams): Boolean {
+                          fileCb?.onReceiveValue(null); fileCb = cb
+                          return try { startActivityForResult(p.createIntent(), 78); true } catch (e: Exception) { fileCb = null; false }
+                      }
+                  }
+                  wv.setDownloadListener { url, ua, cd, mime, _ ->
+                      try {
+                          val r = DownloadManager.Request(Uri.parse(url)).setMimeType(mime).addRequestHeader("User-Agent", ua)
+                              .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                              .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, cd, mime))
+                          (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(r)
+                      } catch (_: Exception) {}
+                  }
+                  wv.loadUrl("https://appassets.androidplatform.net/assets/www/index.html")
+              }
+
+              override fun onRequestPermissionsResult(rc: Int, p: Array<out String>, g: IntArray) {
+                  super.onRequestPermissionsResult(rc, p, g)
+                  if (rc == 77) {
+                      val req = pendingPerm; pendingPerm = null
+                      if (req != null) { if (g.isNotEmpty() && g.all { it == PackageManager.PERMISSION_GRANTED }) req.grant(req.resources) else req.deny() }
+                  }
+              }
+
+              @Deprecated("Deprecated in Java")
+              override fun onActivityResult(rc: Int, res: Int, data: Intent?) {
+                  if (rc == 78) { fileCb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data)); fileCb = null }
+                  else super.onActivityResult(rc, res, data)
+              }
+
+              @Deprecated("Deprecated in Java")
+              override fun onBackPressed() { if (wv.canGoBack()) wv.goBack() else super.onBackPressed() }
+              override fun onPause() { super.onPause(); wv.onPause() }
+              override fun onResume() { super.onResume(); wv.onResume() }
+          }
+          __EOF__
+          cat > scripts/build_one.sh <<'__EOF__'
+          #!/usr/bin/env bash
+          # Usage: build_one.sh inbox/<name>.zip   -> creates a GitHub Release containing the APK
+          set -euo pipefail
+          REPO="$(pwd)"; ZIP="$REPO/$1"
+          NAME="$(basename "$1" .zip)"
+          HASH="$(sha256sum "$ZIP" | cut -c1-8)"
+          CLEAN="$(printf '%s' "$NAME" | sed 's/[^A-Za-z0-9 ._-]//g')"; [ -n "$CLEAN" ] || CLEAN="App"
+          SLUG="$(printf '%s' "$NAME" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]\+/-/g;s/^-//;s/-$//')"; SLUG="${SLUG:-app-$HASH}"
+          APPID="com.factory.a$(printf '%s' "$SLUG" | tr -d '-')"
+          TAG="$SLUG-$HASH"
+
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "✓ already built: $TAG"; exit 0; fi
+          echo "=== Building $NAME ($TAG)"
+
+          W="$(mktemp -d)"; mkdir "$W/src"; unzip -q "$ZIP" -d "$W/src"; rm -rf "$W/src/__MACOSX"
+          ROOT="$W/src"
+          while [ "$(ls -A "$ROOT" | wc -l)" -eq 1 ] && [ -d "$ROOT/$(ls -A "$ROOT")" ]; do ROOT="$ROOT/$(ls -A "$ROOT")"; done
+          OUT="$W/$SLUG.apk"
+
+          if [ -f "$ROOT/settings.gradle" ] || [ -f "$ROOT/settings.gradle.kts" ]; then
+            MODE="android-project"
+            cd "$ROOT"
+            if [ -f gradlew ]; then chmod +x gradlew; ./gradlew assembleDebug --no-daemon 2>&1 | tail -n 200
+            else gradle assembleDebug --no-daemon 2>&1 | tail -n 200; fi
+            APK="$(find . -path '*/outputs/apk/debug/*.apk' ! -name '*androidTest*' | sort | head -1)"
+            [ -n "$APK" ] || { echo "❌ Build finished but no APK was produced"; exit 1; }
+            cp "$APK" "$OUT"
+          else
+            IDX="$(find "$W/src" -maxdepth 4 -name index.html | awk '{print length, $0}' | sort -n | head -1 | cut -d' ' -f2-)"
+            [ -n "$IDX" ] || { echo "❌ ZIP has neither a Gradle project nor an index.html"; exit 1; }
+            MODE="web-app"
+            WWW="$REPO/webshell/app/src/main/assets/www"; rm -rf "$WWW"; mkdir -p "$WWW"
+            cp -r "$(dirname "$IDX")/." "$WWW/"
+            cd "$REPO/webshell"
+            gradle assembleDebug --no-daemon -PappId="$APPID" -PappName="$CLEAN" -Pvcode="$(( $(date +%s) / 60 ))" 2>&1 | tail -n 200
+            cp app/build/outputs/apk/debug/app-debug.apk "$OUT"
+          fi
+
+          # Same signing key for every build => new versions install over old ones.
+          AS="$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -n "$AS" ]; then
+            "$AS" sign --ks "$REPO/factory.jks" --ks-pass pass:factory123 --key-pass pass:factory123 \
+              --v4-signing-enabled false --out "$OUT.signed" "$OUT" && mv "$OUT.signed" "$OUT"
+          fi
+
+          gh release create "$TAG" "$OUT" -R "$GITHUB_REPOSITORY" --title "$CLEAN" --notes "mode: $MODE • source: $NAME.zip"
+          echo "✅ Done: $TAG"
+          __EOF__
+          chmod +x scripts/build_one.sh
+      - name: Build every new ZIP in inbox/
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          FAIL=0
+          for z in inbox/*.zip; do
+            bash scripts/build_one.sh "$z" || FAIL=1
+          done
+          exit $FAIL
